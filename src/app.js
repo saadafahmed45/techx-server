@@ -8,7 +8,6 @@ const collectionRoutes = require("./routes/collectionRoutes");
 
 const app = express();
 
-
 // MIDDLEWARE
 app.use(cors());
 
@@ -18,7 +17,6 @@ app.use(express.urlencoded({
   extended: true,
 }));
 
-
 // ROUTES
 app.use("/products", productRoutes);
 
@@ -26,7 +24,6 @@ app.use(
   "/collections",
   collectionRoutes
 );
-
 
 // ROOT
 app.get("/", (req, res) => {

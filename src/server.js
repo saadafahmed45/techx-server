@@ -6,17 +6,17 @@ const {
   connectDB,
 } = require("./config/db");
 
-const port =
-  process.env.PORT || 5000;
+let isConnected = false;
 
-const startServer = async () => {
-  await connectDB();
-
-  app.listen(port, () => {
-    console.log(
-      `🚀 Server Running On ${port}`
-    );
-  });
+const connect = async () => {
+  if (!isConnected) {
+    await connectDB();
+    isConnected = true;
+  }
 };
 
-startServer();
+module.exports = async (req, res) => {
+  await connect();
+
+  return app(req, res);
+};

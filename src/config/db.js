@@ -1,4 +1,7 @@
-const { MongoClient, ServerApiVersion } = require("mongodb");
+const {
+  MongoClient,
+  ServerApiVersion,
+} = require("mongodb");
 
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.58zpnyp.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
 
@@ -14,11 +17,17 @@ let db;
 
 const connectDB = async () => {
   try {
+    if (db) return db;
+
     await client.connect();
 
     console.log("✅ MongoDB Connected");
 
-    db = client.db("techx_Shop_Database");
+    db = client.db(
+      "techx_Shop_Database"
+    );
+
+    return db;
   } catch (error) {
     console.log(error);
   }
@@ -30,4 +39,3 @@ module.exports = {
   connectDB,
   getDB,
 };
-
