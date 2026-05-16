@@ -9,13 +9,23 @@ const collectionRoutes = require("./routes/collectionRoutes");
 const app = express();
 
 // MIDDLEWARE
-app.use(cors());
+app.use(
+  cors({
+    origin: [
+      "http://localhost:3000",
+      "https://techx-shop.vercel.app",
+    ],
+    credentials: true,
+  })
+);
 
 app.use(express.json());
 
-app.use(express.urlencoded({
-  extended: true,
-}));
+app.use(
+  express.urlencoded({
+    extended: true,
+  })
+);
 
 // ROUTES
 app.use("/products", productRoutes);
