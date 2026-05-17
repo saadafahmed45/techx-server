@@ -3,9 +3,7 @@
 // ==========================================
 
 const { ObjectId } = require("mongodb");
-
 const { getDB } = require("../config/db");
-
 const isValidObjectId = require("../utils/objectId");
 
 // ==========================================
@@ -26,85 +24,49 @@ const createProduct = async (req, res) => {
   try {
     const db = getDB();
 
-    const productCollection =
-      db.collection("products");
-
-    // ======================================
-    // IMAGES
-    // ======================================
     const imageUrls =
-      req.files?.map(
-        (file) => file.path
-      ) || [];
+      req.files?.map((file) => file.path) || [];
 
-    // ======================================
- 
-
-    // ======================================
-    // COLLECTIONS OBJECT
-    // FRONTEND থেকে full object আসবে
-    // ======================================
     const collections = parseJSON(
       req.body.collections,
       []
     );
 
-    // ======================================
-    // PRODUCT OBJECT
-    // ======================================
     const product = {
-      title:
-        req.body.title || "",
+      title: req.body.title || "",
 
-      slug:
-        req.body.slug || "",
+      slug: req.body.slug || "",
 
       description:
-        req.body.description ||
-        "",
+        req.body.description || "",
 
-      vendor:
-        req.body.vendor || "",
+      vendor: req.body.vendor || "",
 
       price:
-        Number(req.body.price) ||
-        0,
+        Number(req.body.price) || 0,
 
       productType:
-        req.body.productType ||
-        "",
+        req.body.productType || "",
 
       status:
-        req.body.status ||
-        "draft",
+        req.body.status || "draft",
 
       featured:
-        req.body.featured ===
-        "true",
+        req.body.featured === "true",
 
       stock:
-        Number(req.body.stock) ||
-        0,
+        Number(req.body.stock) || 0,
 
       tags: req.body.tags
         ? req.body.tags
             .split(",")
-            .map((tag) =>
-              tag.trim()
-            )
+            .map((tag) => tag.trim())
         : [],
 
       images: imageUrls,
 
-
-      // ==================================
-      // COLLECTION OBJECT SAVE
-      // ==================================
       collections,
 
-      // ==================================
-      // RATING
-      // ==================================
       rating: {
         average: 0,
         count: 0,
@@ -116,21 +78,16 @@ const createProduct = async (req, res) => {
       updatedAt: new Date(),
     };
 
-    // ======================================
-    // INSERT
-    // ======================================
-    const result =
-      await productCollection.insertOne(
-        product
-      );
+    const result = await db
+      .collection("products")
+      .insertOne(product);
 
     res.status(201).json({
       success: true,
       message:
         "Product created successfully",
-
-      insertedId:
-        result.insertedId,
+      insertedId: result.insertedId,
+      data: product,
     });
   } catch (error) {
     console.error(error);
@@ -145,10 +102,7 @@ const createProduct = async (req, res) => {
 // ==========================================
 // GET ALL PRODUCTS
 // ==========================================
-const getProducts = async (
-  req,
-  res
-) => {
+const getProducts = async (req, res) => {
   try {
     const db = getDB();
 
@@ -174,52 +128,45 @@ const getProducts = async (
 // ==========================================
 // GET SINGLE PRODUCT
 // ==========================================
-const getSingleProduct =
-  async (req, res) => {
-    try {
-      const id = req.params.id;
+const getSingleProduct = async (
+  req,
+  res
+) => {
+  try {
+    const id = req.params.id;
 
-      // ====================================
-      // SUPPORT ID OR SLUG
-      // ====================================
-      const query =
-        isValidObjectId(id)
-          ? {
-              _id: new ObjectId(
-                id
-              ),
-            }
-          : {
-              slug: id,
-            };
+    const query =
+      isValidObjectId(id)
+        ? {
+            _id: new ObjectId(id),
+          }
+        : {
+            slug: id,
+          };
 
-      const db = getDB();
+    const db = getDB();
 
-      const product = await db
-        .collection("products")
-        .findOne(query);
+    const product = await db
+      .collection("products")
+      .findOne(query);
 
-      if (!product) {
-        return res
-          .status(404)
-          .json({
-            success: false,
-            message:
-              "Product Not Found",
-          });
-      }
-
-      res.json(product);
-    } catch (error) {
-      console.error(error);
-
-      res.status(500).json({
+    if (!product) {
+      return res.status(404).json({
         success: false,
-        message:
-          error.message,
+        message: "Product Not Found",
       });
     }
-  };
+
+    res.json(product);
+  } catch (error) {
+    console.error(error);
+
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
 
 // ==========================================
 // UPDATE PRODUCT
@@ -231,37 +178,44 @@ const updateProduct = async (
   try {
     const id = req.params.id;
 
-    if (
-      !isValidObjectId(id)
-    ) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message:
-            "Invalid Product ID",
-        });
+    if (!isValidObjectId(id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid Product ID",
+      });
     }
 
     const db = getDB();
 
     // ======================================
-    // IMAGES
+    // EXISTING PRODUCT
+    // ======================================
+    const existingProduct = await db
+      .collection("products")
+      .findOne({
+        _id: new ObjectId(id),
+      });
+
+    if (!existingProduct) {
+      return res.status(404).json({
+        success: false,
+        message: "Product not found",
+      });
+    }
+
+    // ======================================
+    // NEW IMAGES
     // ======================================
     const imageUrls =
-      req.files?.map(
-        (file) => file.path
-      ) || [];
+      req.files?.map((file) => file.path) ||
+      [];
 
     // ======================================
-   
-
-    // ======================================
-    // COLLECTIONS OBJECT
+    // COLLECTIONS
     // ======================================
     const collections = parseJSON(
       req.body.collections,
-      []
+      existingProduct.collections || []
     );
 
     // ======================================
@@ -270,39 +224,40 @@ const updateProduct = async (
     const updatedDoc = {
       $set: {
         title:
-          req.body.title || "",
+          req.body.title ||
+          existingProduct.title,
 
         slug:
-          req.body.slug || "",
+          req.body.slug ||
+          existingProduct.slug,
 
         description:
           req.body.description ||
-          "",
+          existingProduct.description,
 
         vendor:
-          req.body.vendor || "",
+          req.body.vendor ||
+          existingProduct.vendor,
 
         price:
-          Number(
-            req.body.price
-          ) || 0,
+          Number(req.body.price) ||
+          existingProduct.price,
 
         productType:
           req.body.productType ||
-          "",
+          existingProduct.productType,
 
         status:
           req.body.status ||
+          existingProduct.status ||
           "draft",
 
         featured:
-          req.body.featured ===
-          "true",
+          req.body.featured === "true",
 
         stock:
-          Number(
-            req.body.stock
-          ) || 0,
+          Number(req.body.stock) ||
+          existingProduct.stock,
 
         tags: req.body.tags
           ? req.body.tags
@@ -310,33 +265,26 @@ const updateProduct = async (
               .map((tag) =>
                 tag.trim()
               )
-          : [],
+          : existingProduct.tags || [],
 
-
-        // ==============================
-        // SAVE FULL COLLECTION OBJECT
-        // ==============================
         collections,
 
-        updatedAt:
-          new Date(),
+        updatedAt: new Date(),
       },
     };
 
     // ======================================
-    // UPDATE IMAGES
+    // KEEP OLD IMAGES IF NEW NOT UPLOADED
     // ======================================
-    if (
+    updatedDoc.$set.images =
       imageUrls.length > 0
-    ) {
-      updatedDoc.$set.images =
-        imageUrls;
-    }
+        ? imageUrls
+        : existingProduct.images || [];
 
     // ======================================
-    // UPDATE
+    // UPDATE DATABASE
     // ======================================
-    const result = await db
+    await db
       .collection("products")
       .updateOne(
         {
@@ -345,12 +293,144 @@ const updateProduct = async (
         updatedDoc
       );
 
+    // ======================================
+    // GET UPDATED PRODUCT
+    // ======================================
+    const updatedProduct = await db
+      .collection("products")
+      .findOne({
+        _id: new ObjectId(id),
+      });
+
+    // ======================================
+    // RESPONSE
+    // ======================================
     res.json({
       success: true,
       message:
         "Product updated successfully",
+      data: updatedProduct,
+    });
+  } catch (error) {
+    console.error(error);
 
-      result,
+    res.status(500).json({
+      success: false,
+      message:
+        error.message ||
+        "Something went wrong",
+    });
+  }
+};
+
+// ==========================================
+// ADD PRODUCT RATING
+// ==========================================
+const addProductRating = async (
+  req,
+  res
+) => {
+  try {
+    const id = req.params.id;
+
+    if (!isValidObjectId(id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid Product ID",
+      });
+    }
+
+    const db = getDB();
+
+    const {
+      rating,
+      comment,
+      customerName,
+    } = req.body;
+
+    const numericRating =
+      Number(rating);
+
+    if (
+      numericRating < 1 ||
+      numericRating > 5
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Rating must be between 1 to 5",
+      });
+    }
+
+    const product = await db
+      .collection("products")
+      .findOne({
+        _id: new ObjectId(id),
+      });
+
+    if (!product) {
+      return res.status(404).json({
+        success: false,
+        message: "Product not found",
+      });
+    }
+
+    const oldReviews =
+      product.rating?.reviews || [];
+
+    const newReview = {
+      customerName:
+        customerName || "Anonymous",
+
+      rating: numericRating,
+
+      comment: comment || "",
+
+      createdAt: new Date(),
+    };
+
+    const updatedReviews = [
+      ...oldReviews,
+      newReview,
+    ];
+
+    const total =
+      updatedReviews.reduce(
+        (sum, item) =>
+          sum + item.rating,
+        0
+      );
+
+    const average =
+      total / updatedReviews.length;
+
+    await db
+      .collection("products")
+      .updateOne(
+        {
+          _id: new ObjectId(id),
+        },
+        {
+          $set: {
+            rating: {
+              average: Number(
+                average.toFixed(1)
+              ),
+
+              count:
+                updatedReviews.length,
+
+              reviews:
+                updatedReviews,
+            },
+          },
+        }
+      );
+
+    res.json({
+      success: true,
+      message:
+        "Rating added successfully",
     });
   } catch (error) {
     console.error(error);
@@ -363,136 +443,6 @@ const updateProduct = async (
 };
 
 // ==========================================
-// ADD PRODUCT RATING
-// ==========================================
-const addProductRating =
-  async (req, res) => {
-    try {
-      const id = req.params.id;
-
-      if (
-        !isValidObjectId(id)
-      ) {
-        return res
-          .status(400)
-          .json({
-            success: false,
-            message:
-              "Invalid Product ID",
-          });
-      }
-
-      const db = getDB();
-
-      const { rating, comment ,customerName} =
-        req.body;
-
-      const numericRating =
-        Number(rating);
-
-      if (
-        numericRating < 1 ||
-        numericRating > 5
-      ) {
-        return res
-          .status(400)
-          .json({
-            success: false,
-            message:
-              "Rating must be between 1 to 5",
-          });
-      }
-
-      const product = await db
-        .collection("products")
-        .findOne({
-          _id: new ObjectId(id),
-        });
-
-      if (!product) {
-        return res
-          .status(404)
-          .json({
-            success: false,
-            message:
-              "Product not found",
-          });
-      }
-
-      const oldReviews =
-        product.rating?.reviews ||
-        [];
-
-      const newReview = {
-        customerName: customerName || "Anonymous",
-        rating: numericRating,
-        comment:
-          comment || "",
-
-           
-
-        createdAt: new Date(),
-      };
-
-      const updatedReviews = [
-        ...oldReviews,
-        newReview,
-      ];
-
-      const total =
-        updatedReviews.reduce(
-          (sum, item) =>
-            sum + item.rating,
-          0
-        );
-
-      const average =
-        total /
-        updatedReviews.length;
-
-      await db
-        .collection("products")
-        .updateOne(
-          {
-            _id: new ObjectId(id),
-          },
-          {
-            $set: {
-              rating: {
-                average:
-                  Number(
-                    average.toFixed(
-                      1
-                    )
-                  ),
-
-                count:
-                  updatedReviews.length,
-
-                reviews:
-                  updatedReviews,
-              },
-            },
-          }
-        );
-
-      res.json({
-        success: true,
-        message:
-          "Rating added successfully",
-      });
-    } catch (error) {
-      console.error(error);
-
-      res.status(500).json({
-        success: false,
-        message:
-          error.message,
-      });
-    }
-  };
-
-// ==========================================
 // DELETE PRODUCT
 // ==========================================
 const deleteProduct = async (
@@ -502,16 +452,11 @@ const deleteProduct = async (
   try {
     const id = req.params.id;
 
-    if (
-      !isValidObjectId(id)
-    ) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message:
-            "Invalid Product ID",
-        });
+    if (!isValidObjectId(id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid Product ID",
+      });
     }
 
     const db = getDB();
@@ -522,16 +467,11 @@ const deleteProduct = async (
         _id: new ObjectId(id),
       });
 
-    if (
-      result.deletedCount === 0
-    ) {
-      return res
-        .status(404)
-        .json({
-          success: false,
-          message:
-            "Product Not Found",
-        });
+    if (result.deletedCount === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Product Not Found",
+      });
     }
 
     res.json({
