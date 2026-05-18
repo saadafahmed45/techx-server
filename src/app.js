@@ -35,10 +35,11 @@ app.use(
   collectionRoutes
 );
 
-app.use(
-  "/hero-sliders",
-  heroSliderRoutes
-);
+// IMPORTANT: static image serve
+app.use("/uploads", express.static("uploads"));
+
+// route mount
+app.use("/hero-sliders", require("./routes/heroSliderRoutes"));
 
 // ROOT
 app.get("/", (req, res) => {

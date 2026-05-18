@@ -3,13 +3,9 @@
 // ==========================================
 
 const express = require("express");
+const router = express.Router();
 
-const router =
-  express.Router();
-
-const upload = require(
-  "../middleware/upload"
-);
+const upload = require("../middleware/upload");
 
 const {
   createHeroSlider,
@@ -17,50 +13,21 @@ const {
   getSingleHeroSlider,
   updateHeroSlider,
   deleteHeroSlider,
-} = require(
-  "../controllers/HeroSliderController"
-);
+} = require("../controllers/HeroSliderController");
 
-// ==========================================
 // CREATE
-// ==========================================
-router.post(
-  "/",
-  upload.single("image"),
-  createHeroSlider
-);
+router.post("/", upload.single("image"), createHeroSlider);
 
-// ==========================================
 // GET ALL
-// ==========================================
-router.get(
-  "/",
-  getHeroSliders
-);
+router.get("/", getHeroSliders);
 
-// ==========================================
 // GET SINGLE
-// ==========================================
-router.get(
-  "/:id",
-  getSingleHeroSlider
-);
+router.get("/:id", getSingleHeroSlider);
 
-// ==========================================
 // UPDATE
-// ==========================================
-router.put(
-  "/:id",
-  upload.single("image"),
-  updateHeroSlider
-);
+router.put("/:id", upload.single("image"), updateHeroSlider);
 
-// ==========================================
 // DELETE
-// ==========================================
-router.delete(
-  "/:id",
-  deleteHeroSlider
-);
+router.delete("/:id", deleteHeroSlider);
 
 module.exports = router;
