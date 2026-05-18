@@ -220,10 +220,10 @@ const getSingleProduct =
       });
     }
   };
-
 // ==========================================
 // UPDATE PRODUCT
 // ==========================================
+
 const updateProduct = async (
   req,
   res
@@ -231,16 +231,11 @@ const updateProduct = async (
   try {
     const id = req.params.id;
 
-    if (
-      !isValidObjectId(id)
-    ) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message:
-            "Invalid Product ID",
-        });
+    if (!isValidObjectId(id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid Product ID",
+      });
     }
 
     const db = getDB();
@@ -248,109 +243,111 @@ const updateProduct = async (
     // ======================================
     // IMAGES
     // ======================================
+
     const imageUrls =
       req.files?.map(
         (file) => file.path
       ) || [];
 
     // ======================================
-   
+    // COLLECTIONS
+    // ======================================
 
-    // ======================================
-    // COLLECTIONS OBJECT
-    // ======================================
     const collections = parseJSON(
       req.body.collections,
       []
     );
 
     // ======================================
-    // UPDATE DOC
+    // UPDATE DATA
     // ======================================
-    const updatedDoc = {
-      $set: {
-        title:
-          req.body.title || "",
 
-        slug:
-          req.body.slug || "",
+    const updateData = {
+      title:
+        req.body.title || "",
 
-        description:
-          req.body.description ||
-          "",
+      slug:
+        req.body.slug || "",
 
-        vendor:
-          req.body.vendor || "",
+      description:
+        req.body.description || "",
 
-        price:
-          Number(
-            req.body.price
-          ) || 0,
+      vendor:
+        req.body.vendor || "",
 
-        productType:
-          req.body.productType ||
-          "",
+      price:
+        Number(req.body.price) || 0,
 
-        status:
-          req.body.status ||
-          "draft",
+      productType:
+        req.body.productType || "",
 
-        featured:
-          req.body.featured ===
-          "true",
+      status:
+        req.body.status || "draft",
 
-        stock:
-          Number(
-            req.body.stock
-          ) || 0,
+      featured:
+        req.body.featured === "true" ||
+        req.body.featured === true,
 
-        tags: req.body.tags
-          ? req.body.tags
-              .split(",")
-              .map((tag) =>
-                tag.trim()
-              )
-          : [],
+      stock:
+        Number(req.body.stock) || 0,
 
+      tags: req.body.tags
+        ? req.body.tags
+            .split(",")
+            .map((tag) =>
+              tag.trim()
+            )
+        : [],
 
-        // ==============================
-        // SAVE FULL COLLECTION OBJECT
-        // ==============================
-        collections,
+      collections,
 
-        updatedAt:
-          new Date(),
-      },
+      updatedAt: new Date(),
     };
 
     // ======================================
-    // UPDATE IMAGES
+    // UPDATE IMAGES ONLY IF EXISTS
     // ======================================
-    if (
-      imageUrls.length > 0
-    ) {
-      updatedDoc.$set.images =
-        imageUrls;
+
+    if (imageUrls.length > 0) {
+      updateData.images = imageUrls;
     }
 
     // ======================================
-    // UPDATE
+    // UPDATE PRODUCT
     // ======================================
-    const result = await db
+
+    await db
       .collection("products")
       .updateOne(
         {
           _id: new ObjectId(id),
         },
-        updatedDoc
+        {
+          $set: updateData,
+        }
       );
+
+    // ======================================
+    // GET UPDATED PRODUCT
+    // ======================================
+
+    const updatedProduct =
+      await db
+        .collection("products")
+        .findOne({
+          _id: new ObjectId(id),
+        });
+
+    // ======================================
+    // RESPONSE
+    // ======================================
 
     res.json({
       success: true,
       message:
         "Product updated successfully",
 
-      result,
+      data: updatedProduct,
     });
   } catch (error) {
     console.error(error);
@@ -361,7 +358,6 @@ const updateProduct = async (
     });
   }
 };
-
 // ==========================================
 // ADD PRODUCT RATING
 // ==========================================

@@ -8,47 +8,35 @@ const {
   createProduct,
   getProducts,
   getSingleProduct,
-  updateProduct, // ADD THIS
+  updateProduct,
   deleteProduct,
   addProductRating,
 } = require("../controllers/productController");
 
-// ===================================
-// CREATE PRODUCT
-// ===================================
+// CREATE
 router.post(
   "/",
   upload.array("images", 5),
   createProduct
 );
 
-// ===================================
-// GET PRODUCTS
-// ===================================
+// GET ALL
 router.get("/", getProducts);
 
-// ===================================
-// GET SINGLE PRODUCT
-// ===================================
+// GET SINGLE
 router.get("/:id", getSingleProduct);
 
-// ===================================
-// UPDATE PRODUCT
-// ===================================
+// UPDATE
 router.put(
   "/:id",
   upload.array("images", 5),
   updateProduct
 );
 
-// ===================================
-// DELETE PRODUCT
-// ===================================
+// DELETE
 router.delete("/:id", deleteProduct);
 
-// ===================================
-// ADD REVIEW & RATING
-// ===================================
+// RATING
 router.post(
   "/:id/rating",
   addProductRating
