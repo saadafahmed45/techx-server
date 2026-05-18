@@ -5,7 +5,7 @@ const cors = require("cors");
 const productRoutes = require("./routes/productRoutes");
 
 const collectionRoutes = require("./routes/collectionRoutes");
-
+const heroSliderRoutes = require("./routes/heroSliderRoutes");
 const app = express();
 
 // MIDDLEWARE
@@ -33,6 +33,11 @@ app.use("/products", productRoutes);
 app.use(
   "/collections",
   collectionRoutes
+);
+
+app.use(
+  "/hero-sliders",
+  heroSliderRoutes
 );
 
 // ROOT
