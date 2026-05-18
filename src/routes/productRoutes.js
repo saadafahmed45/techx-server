@@ -8,6 +8,7 @@ const {
   createProduct,
   getProducts,
   getSingleProduct,
+  updateProduct, // ADD THIS
   deleteProduct,
   addProductRating,
 } = require("../controllers/productController");
@@ -30,6 +31,15 @@ router.get("/", getProducts);
 // GET SINGLE PRODUCT
 // ===================================
 router.get("/:id", getSingleProduct);
+
+// ===================================
+// UPDATE PRODUCT
+// ===================================
+router.put(
+  "/:id",
+  upload.array("images", 5),
+  updateProduct
+);
 
 // ===================================
 // DELETE PRODUCT
