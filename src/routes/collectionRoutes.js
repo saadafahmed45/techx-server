@@ -1,8 +1,16 @@
-const express = require("express");
+// ==========================================
+// routes/collectionRoutes.js
+// ==========================================
 
-const router = express.Router();
+const express =
+  require("express");
 
-const upload = require("../middleware/upload");
+const router =
+  express.Router();
+
+const upload = require(
+  "../middleware/upload"
+);
 
 const {
   createCollection,
@@ -10,34 +18,37 @@ const {
   getSingleCollection,
   updateCollection,
   deleteCollection,
-} = require("../controllers/collectionController");
+} = require(
+  "../controllers/collectionController"
+);
 
-
-// CREATE COLLECTION
+// CREATE
 router.post(
   "/",
   upload.single("image"),
   createCollection
 );
 
+// GET ALL
+router.get(
+  "/",
+  getCollections
+);
 
-// GET ALL COLLECTIONS
-router.get("/", getCollections);
+// GET SINGLE
+router.get(
+  "/:id",
+  getSingleCollection
+);
 
-
-// GET SINGLE COLLECTION
-router.get("/:id", getSingleCollection);
-
-
-// UPDATE COLLECTION
+// UPDATE
 router.put(
   "/:id",
   upload.single("image"),
   updateCollection
 );
 
-
-// DELETE COLLECTION
+// DELETE
 router.delete(
   "/:id",
   deleteCollection

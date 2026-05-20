@@ -1,8 +1,16 @@
-const express = require("express");
+// ==========================================
+// routes/productRoutes.js
+// ==========================================
 
-const router = express.Router();
+const express =
+  require("express");
 
-const upload = require("../middleware/upload");
+const router =
+  express.Router();
+
+const upload = require(
+  "../middleware/upload"
+);
 
 const {
   createProduct,
@@ -11,7 +19,9 @@ const {
   updateProduct,
   deleteProduct,
   addProductRating,
-} = require("../controllers/productController");
+} = require(
+  "../controllers/productController"
+);
 
 // CREATE
 router.post(
@@ -21,10 +31,16 @@ router.post(
 );
 
 // GET ALL
-router.get("/", getProducts);
+router.get(
+  "/",
+  getProducts
+);
 
 // GET SINGLE
-router.get("/:id", getSingleProduct);
+router.get(
+  "/:id",
+  getSingleProduct
+);
 
 // UPDATE
 router.put(
@@ -34,9 +50,12 @@ router.put(
 );
 
 // DELETE
-router.delete("/:id", deleteProduct);
+router.delete(
+  "/:id",
+  deleteProduct
+);
 
-// RATING
+// PRODUCT RATING
 router.post(
   "/:id/rating",
   addProductRating

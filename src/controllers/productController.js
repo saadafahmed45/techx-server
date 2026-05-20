@@ -3,26 +3,56 @@
 // ==========================================
 
 const { ObjectId } = require("mongodb");
-
 const { getDB } = require("../config/db");
-
 const isValidObjectId = require("../utils/objectId");
 
 // ==========================================
-// HELPER
+// HELPERS
 // ==========================================
+
 const parseJSON = (value, fallback = []) => {
   try {
     return value ? JSON.parse(value) : fallback;
-  } catch (error) {
+  } catch {
     return fallback;
   }
+};
+
+const parseCollections = (input) => {
+  if (!input) return [];
+
+  let collections = [];
+
+  try {
+    collections =
+      typeof input === "string"
+        ? JSON.parse(input)
+        : input;
+  } catch {
+    collections = [];
+  }
+
+  return Array.isArray(collections)
+    ? collections.map((item) => ({
+        _id: String(
+          item._id || item.id || ""
+        ),
+        name: item.name || "",
+        slug: item.slug || "",
+        imageUrl:
+          item.imageUrl || "",
+      }))
+    : [];
 };
 
 // ==========================================
 // CREATE PRODUCT
 // ==========================================
-const createProduct = async (req, res) => {
+
+const createProduct = async (
+  req,
+  res
+) => {
   try {
     const db = getDB();
 
@@ -32,26 +62,25 @@ const createProduct = async (req, res) => {
     // ======================================
     // IMAGES
     // ======================================
+
     const imageUrls =
       req.files?.map(
         (file) => file.path
       ) || [];
 
     // ======================================
- 
+    // COLLECTIONS
+    // ======================================
 
-    // ======================================
-    // COLLECTIONS OBJECT
-    // FRONTEND থেকে full object আসবে
-    // ======================================
-    const collections = parseJSON(
-      req.body.collections,
-      []
-    );
+    const collections =
+      parseCollections(
+        req.body.collections
+      );
 
     // ======================================
     // PRODUCT OBJECT
     // ======================================
+
     const product = {
       title:
         req.body.title || "",
@@ -96,15 +125,10 @@ const createProduct = async (req, res) => {
 
       images: imageUrls,
 
-
-      // ==================================
-      // COLLECTION OBJECT SAVE
-      // ==================================
+      // COLLECTIONS OBJECT
       collections,
 
-      // ==================================
       // RATING
-      // ==================================
       rating: {
         average: 0,
         count: 0,
@@ -119,6 +143,7 @@ const createProduct = async (req, res) => {
     // ======================================
     // INSERT
     // ======================================
+
     const result =
       await productCollection.insertOne(
         product
@@ -145,6 +170,7 @@ const createProduct = async (req, res) => {
 // ==========================================
 // GET ALL PRODUCTS
 // ==========================================
+
 const getProducts = async (
   req,
   res
@@ -174,14 +200,12 @@ const getProducts = async (
 // ==========================================
 // GET SINGLE PRODUCT
 // ==========================================
+
 const getSingleProduct =
   async (req, res) => {
     try {
       const id = req.params.id;
 
-      // ====================================
-      // SUPPORT ID OR SLUG
-      // ====================================
       const query =
         isValidObjectId(id)
           ? {
@@ -220,6 +244,7 @@ const getSingleProduct =
       });
     }
   };
+
 // ==========================================
 // UPDATE PRODUCT
 // ==========================================
@@ -241,7 +266,26 @@ const updateProduct = async (
     const db = getDB();
 
     // ======================================
-    // IMAGES
+    // OLD PRODUCT
+    // ======================================
+
+    const oldProduct =
+      await db
+        .collection("products")
+        .findOne({
+          _id: new ObjectId(id),
+        });
+
+    if (!oldProduct) {
+      return res.status(404).json({
+        success: false,
+        message:
+          "Product not found",
+      });
+    }
+
+    // ======================================
+    // NEW IMAGES
     // ======================================
 
     const imageUrls =
@@ -253,10 +297,10 @@ const updateProduct = async (
     // COLLECTIONS
     // ======================================
 
-    const collections = parseJSON(
-      req.body.collections,
-      []
-    );
+    const collections =
+      parseCollections(
+        req.body.collections
+      );
 
     // ======================================
     // UPDATE DATA
@@ -264,32 +308,53 @@ const updateProduct = async (
 
     const updateData = {
       title:
-        req.body.title || "",
+        req.body.title ??
+        oldProduct.title,
 
       slug:
-        req.body.slug || "",
+        req.body.slug ??
+        oldProduct.slug,
 
       description:
-        req.body.description || "",
+        req.body.description ??
+        oldProduct.description,
 
       vendor:
-        req.body.vendor || "",
+        req.body.vendor ??
+        oldProduct.vendor,
 
       price:
-        Number(req.body.price) || 0,
+        req.body.price !==
+        undefined
+          ? Number(
+              req.body.price
+            )
+          : oldProduct.price,
 
       productType:
-        req.body.productType || "",
+        req.body.productType ??
+        oldProduct.productType,
 
       status:
-        req.body.status || "draft",
+        req.body.status ??
+        oldProduct.status,
 
       featured:
-        req.body.featured === "true" ||
-        req.body.featured === true,
+        req.body.featured !==
+        undefined
+          ? req.body.featured ===
+              "true" ||
+            req.body.featured ===
+              true
+          : oldProduct.featured,
 
       stock:
-        Number(req.body.stock) || 0,
+        req.body.stock !==
+        undefined
+          ? Number(
+              req.body.stock
+            )
+          : oldProduct.stock,
 
       tags: req.body.tags
         ? req.body.tags
@@ -297,23 +362,32 @@ const updateProduct = async (
             .map((tag) =>
               tag.trim()
             )
-        : [],
+        : oldProduct.tags || [],
 
-      collections,
+      collections:
+        collections.length > 0
+          ? collections
+          : oldProduct.collections ||
+            [],
 
       updatedAt: new Date(),
     };
 
     // ======================================
-    // UPDATE IMAGES ONLY IF EXISTS
+    // IMAGES UPDATE
     // ======================================
 
     if (imageUrls.length > 0) {
-      updateData.images = imageUrls;
+      updateData.images =
+        imageUrls;
+    } else {
+      updateData.images =
+        oldProduct.images ||
+        [];
     }
 
     // ======================================
-    // UPDATE PRODUCT
+    // UPDATE
     // ======================================
 
     await db
@@ -328,7 +402,7 @@ const updateProduct = async (
       );
 
     // ======================================
-    // GET UPDATED PRODUCT
+    // UPDATED PRODUCT
     // ======================================
 
     const updatedProduct =
@@ -358,9 +432,11 @@ const updateProduct = async (
     });
   }
 };
+
 // ==========================================
 // ADD PRODUCT RATING
 // ==========================================
+
 const addProductRating =
   async (req, res) => {
     try {
@@ -380,8 +456,11 @@ const addProductRating =
 
       const db = getDB();
 
-      const { rating, comment ,customerName} =
-        req.body;
+      const {
+        rating,
+        comment,
+        customerName,
+      } = req.body;
 
       const numericRating =
         Number(rating);
@@ -420,14 +499,17 @@ const addProductRating =
         [];
 
       const newReview = {
-        customerName: customerName || "Anonymous",
+        customerName:
+          customerName ||
+          "Anonymous",
+
         rating: numericRating,
+
         comment:
           comment || "",
 
-           
-
-        createdAt: new Date(),
+        createdAt:
+          new Date(),
       };
 
       const updatedReviews = [
@@ -491,6 +573,7 @@ const addProductRating =
 // ==========================================
 // DELETE PRODUCT
 // ==========================================
+
 const deleteProduct = async (
   req,
   res
