@@ -1,14 +1,27 @@
+// ==========================================
+// app.js
+// ==========================================
+
 const express = require("express");
+
 const cors = require("cors");
 
-const productRoutes = require("./routes/productRoutes");
-const collectionRoutes = require("./routes/collectionRoutes");
-const heroSliderRoutes = require("./routes/heroSliderRoutes");
+const productRoutes =
+  require("./routes/productRoutes");
+
+const collectionRoutes =
+  require("./routes/collectionRoutes");
+
+const heroSliderRoutes =
+  require("./routes/heroSliderRoutes");
+
+const orderRoutes =
+  require("./routes/orderRoutes");
 
 const app = express();
 
 /* =========================================
-   CORS (PRODUCTION SAFE)
+   CORS
 ========================================= */
 
 const allowedOrigins = [
@@ -18,16 +31,35 @@ const allowedOrigins = [
 
 app.use(
   cors({
-    origin: function (origin, callback) {
-      // allow tools like Postman / server-to-server
-      if (!origin) return callback(null, true);
+    origin: function (
+      origin,
+      callback
+    ) {
+      if (!origin)
+        return callback(
+          null,
+          true
+        );
 
-      if (allowedOrigins.includes(origin)) {
-        return callback(null, true);
+      if (
+        allowedOrigins.includes(
+          origin
+        )
+      ) {
+        return callback(
+          null,
+          true
+        );
       }
 
-      return callback(new Error("CORS blocked: " + origin));
+      return callback(
+        new Error(
+          "CORS blocked: " +
+            origin
+        )
+      );
     },
+
     credentials: true,
   })
 );
@@ -37,45 +69,87 @@ app.use(
 ========================================= */
 
 app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+
+app.use(
+  express.urlencoded({
+    extended: true,
+  })
+);
 
 /* =========================================
-   STATIC FILES (IMAGES)
+   STATIC FILES
 ========================================= */
 
-app.use("/uploads", express.static("uploads"));
+app.use(
+  "/uploads",
+  express.static(
+    "uploads"
+  )
+);
 
 /* =========================================
    ROUTES
 ========================================= */
 
-app.use("/products", productRoutes);
-app.use("/collections", collectionRoutes);
-app.use("/hero-sliders", heroSliderRoutes);
+app.use(
+  "/products",
+  productRoutes
+);
+
+app.use(
+  "/collections",
+  collectionRoutes
+);
+
+app.use(
+  "/hero-sliders",
+  heroSliderRoutes
+);
+
+// ORDER ROUTE
+app.use(
+  "/orders",
+  orderRoutes
+);
 
 /* =========================================
-   ROOT CHECK
+   ROOT
 ========================================= */
 
 app.get("/", (req, res) => {
   res.json({
     success: true,
-    message: "API Running Successfully 🚀",
+
+    message:
+      "API Running Successfully 🚀",
   });
 });
 
 /* =========================================
-   ERROR HANDLING (IMPORTANT FOR CORS)
+   ERROR HANDLER
 ========================================= */
 
-app.use((err, req, res, next) => {
-  if (err) {
-    return res.status(500).json({
-      success: false,
-      message: err.message || "Server Error",
-    });
+app.use(
+  (
+    err,
+    req,
+    res,
+    next
+  ) => {
+    if (err) {
+      return res
+        .status(500)
+        .json({
+          success: false,
+
+          message:
+            err.message ||
+            "Server Error",
+        });
+    }
+
+    next();
   }
-  next();
-});
+);
 
 module.exports = app;
