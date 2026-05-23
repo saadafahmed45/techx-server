@@ -107,8 +107,8 @@ const createProduct = async (
         req.body.status ||
         "draft",
 
-      features: req.body.features
-      ? JSON.parse(req.body.features)
+      featured: req.body.featured
+      ? JSON.parse(req.body.featured)
       : [],
 
       stock:
@@ -306,8 +306,8 @@ const updateProduct = async (
     // FEATURES
     // ======================================
 
-    const features = req.body.features
-      ? JSON.parse(req.body.features)
+    const featured = req.body.featured
+      ? JSON.parse(req.body.featured)
       : [];
 
     // ======================================
