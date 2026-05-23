@@ -303,6 +303,14 @@ const updateProduct = async (
       );
 
     // ======================================
+    // FEATURES
+    // ======================================
+
+    const features = req.body.features
+      ? JSON.parse(req.body.features)
+      : [];
+
+    // ======================================
     // UPDATE DATA
     // ======================================
 
@@ -339,14 +347,9 @@ const updateProduct = async (
         req.body.status ??
         oldProduct.status,
 
-      featured:
-        req.body.featured !==
-        undefined
-          ? req.body.featured ===
-              "true" ||
-            req.body.featured ===
-              true
-          : oldProduct.featured,
+  featured: req.body.featured
+  ? JSON.parse(req.body.featured)
+  : [],
 
       stock:
         req.body.stock !==
