@@ -107,9 +107,9 @@ const createProduct = async (
         req.body.status ||
         "draft",
 
-      featured:
-        req.body.featured ===
-        "true",
+      features: req.body.features
+      ? JSON.parse(req.body.features)
+      : [],
 
       stock:
         Number(req.body.stock) ||
