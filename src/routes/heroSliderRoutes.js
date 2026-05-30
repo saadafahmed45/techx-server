@@ -16,7 +16,11 @@ const {
 } = require("../controllers/HeroSliderController");
 
 // CREATE
-router.post("/", upload.single("image"), createHeroSlider);
+router.post(
+  "/",
+  upload.single("image"),
+  createHeroSlider
+);
 
 // GET ALL
 router.get("/", getHeroSliders);
@@ -25,7 +29,11 @@ router.get("/", getHeroSliders);
 router.get("/:id", getSingleHeroSlider);
 
 // UPDATE
-router.put("/:id", upload.single("image"), updateHeroSlider);
+router.put(
+  "/:id",
+  upload.single("image"),
+  updateHeroSlider
+);
 
 // DELETE
 router.delete("/:id", deleteHeroSlider);
