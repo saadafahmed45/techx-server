@@ -5,6 +5,7 @@
 const { ObjectId } = require("mongodb");
 const { getDB } = require("../config/db");
 const isValidObjectId = require("../utils/objectId");
+const { deleteFromCloudinary, deleteManyFromCloudinary } = require("../utils/cloudinaryCleanup");
 
 // ==========================================
 // HELPERS
@@ -44,54 +45,49 @@ const parseCollections = (input) => {
 // ==========================================
 
 const createProduct = async (req, res) => {
-  try {
-    const db = getDB();
-    const productCollection = db.collection("products");
+  const db = getDB();
+  const productCollection = db.collection("products");
 
-    // IMAGES
-    const imageUrls = req.files?.map((file) => file.path) || [];
+  // IMAGES
+  const imageUrls = req.files?.map((file) => file.path) || [];
 
-    // COLLECTIONS
-    const collections = parseCollections(req.body.collections);
+  // COLLECTIONS
+  const collections = parseCollections(req.body.collections);
 
-    // ✅ FIX: featured is a JSON array sent from frontend
-    const featured = parseJSON(req.body.featured, []);
+  // featured is a JSON array sent from frontend
+  const featured = parseJSON(req.body.featured, []);
 
-    const product = {
-      title: req.body.title || "",
-      slug: req.body.slug || "",
-      description: req.body.description || "",
-      vendor: req.body.vendor || "",
-      price: Number(req.body.price) || 0,
-      productType: req.body.productType || "",
-      status: req.body.status || "draft",
-      featured,  // array e.g. ["Featured", "Best Seller"]
-      stock: Number(req.body.stock) || 0,
-      tags: req.body.tags
-        ? req.body.tags.split(",").map((tag) => tag.trim())
-        : [],
-      images: imageUrls,
-      collections,
-      rating: {
-        average: 0,
-        count: 0,
-        reviews: [],
-      },
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
+  const product = {
+    title: req.body.title || "",
+    slug: req.body.slug || "",
+    description: req.body.description || "",
+    vendor: req.body.vendor || "",
+    price: Number(req.body.price) || 0,
+    productType: req.body.productType || "",
+    status: req.body.status || "draft",
+    featured,  // array e.g. ["Featured", "Best Seller"]
+    stock: Number(req.body.stock) || 0,
+    tags: req.body.tags
+      ? req.body.tags.split(",").map((tag) => tag.trim())
+      : [],
+    images: imageUrls,
+    collections,
+    rating: {
+      average: 0,
+      count: 0,
+      reviews: [],
+    },
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
 
-    const result = await productCollection.insertOne(product);
+  const result = await productCollection.insertOne(product);
 
-    res.status(201).json({
-      success: true,
-      message: "Product created successfully",
-      insertedId: result.insertedId,
-    });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ success: false, message: error.message });
-  }
+  res.status(201).json({
+    success: true,
+    message: "Product created successfully",
+    insertedId: result.insertedId,
+  });
 };
 
 // ==========================================
@@ -99,19 +95,17 @@ const createProduct = async (req, res) => {
 // ==========================================
 
 const getProducts = async (req, res) => {
-  try {
-    const db = getDB();
-    const products = await db
-      .collection("products")
-      .find()
-      .sort({ createdAt: -1 })
-      .toArray();
+  const db = getDB();
+  
+  // OPTIMIZATION: Project out the heavy "rating.reviews" and "description" fields
+  // since they are not needed for listing pages.
+  const products = await db
+    .collection("products")
+    .find({}, { projection: { "rating.reviews": 0, description: 0 } })
+    .sort({ createdAt: -1 })
+    .toArray();
 
-    res.json(products);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ success: false, message: error.message });
-  }
+  res.json(products);
 };
 
 // ==========================================
@@ -119,24 +113,19 @@ const getProducts = async (req, res) => {
 // ==========================================
 
 const getSingleProduct = async (req, res) => {
-  try {
-    const id = req.params.id;
-    const query = isValidObjectId(id)
-      ? { _id: new ObjectId(id) }
-      : { slug: id };
+  const id = req.params.id;
+  const query = isValidObjectId(id)
+    ? { _id: new ObjectId(id) }
+    : { slug: id };
 
-    const db = getDB();
-    const product = await db.collection("products").findOne(query);
+  const db = getDB();
+  const product = await db.collection("products").findOne(query);
 
-    if (!product) {
-      return res.status(404).json({ success: false, message: "Product Not Found" });
-    }
-
-    res.json(product);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ success: false, message: error.message });
+  if (!product) {
+    return res.status(404).json({ success: false, message: "Product Not Found" });
   }
+
+  res.json(product);
 };
 
 // ==========================================
@@ -144,84 +133,80 @@ const getSingleProduct = async (req, res) => {
 // ==========================================
 
 const updateProduct = async (req, res) => {
-  try {
-    const id = req.params.id;
+  const id = req.params.id;
 
-    if (!isValidObjectId(id)) {
-      return res.status(400).json({ success: false, message: "Invalid Product ID" });
-    }
-
-    const db = getDB();
-
-    const oldProduct = await db
-      .collection("products")
-      .findOne({ _id: new ObjectId(id) });
-
-    if (!oldProduct) {
-      return res.status(404).json({ success: false, message: "Product not found" });
-    }
-
-    // NEW IMAGES
-    const imageUrls = req.files?.map((file) => file.path) || [];
-
-    // COLLECTIONS
-    const collections = parseCollections(req.body.collections);
-
-    // ✅ FIX: fall back to oldProduct.featured (not []) when nothing is sent
-    const featured = req.body.featured
-      ? parseJSON(req.body.featured, oldProduct.featured || [])
-      : oldProduct.featured || [];
-
-    const updateData = {
-      title: req.body.title ?? oldProduct.title,
-      slug: req.body.slug ?? oldProduct.slug,
-      description: req.body.description ?? oldProduct.description,
-      vendor: req.body.vendor ?? oldProduct.vendor,
-      price:
-        req.body.price !== undefined
-          ? Number(req.body.price)
-          : oldProduct.price,
-      productType: req.body.productType ?? oldProduct.productType,
-      status: req.body.status ?? oldProduct.status,
-      featured,  // ✅ always an array, never wiped to []
-      stock:
-        req.body.stock !== undefined
-          ? Number(req.body.stock)
-          : oldProduct.stock,
-      tags: req.body.tags
-        ? req.body.tags.split(",").map((tag) => tag.trim())
-        : oldProduct.tags || [],
-      collections:
-        collections.length > 0
-          ? collections
-          : oldProduct.collections || [],
-      updatedAt: new Date(),
-    };
-
-    // IMAGES UPDATE
-    if (imageUrls.length > 0) {
-      updateData.images = imageUrls;
-    } else {
-      updateData.images = oldProduct.images || [];
-    }
-
-    await db
-      .collection("products")
-      .updateOne({ _id: new ObjectId(id) }, { $set: updateData });
-
-    const updatedProduct = await db
-      .collection("products")
-      .findOne({ _id: new ObjectId(id) });
-
-    res.json({
-      success: true,
-      message: "Product updated successfully",
-      data: updatedProduct,
-    });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ success: false, message: error.message });
+  if (!isValidObjectId(id)) {
+    return res.status(400).json({ success: false, message: "Invalid Product ID" });
   }
+
+  const db = getDB();
+
+  // Build the update payload dynamically based on what is provided in the request
+  const updateData = {
+    updatedAt: new Date(),
+  };
+
+  if (req.body.title !== undefined) updateData.title = req.body.title;
+  if (req.body.slug !== undefined) updateData.slug = req.body.slug;
+  if (req.body.description !== undefined) updateData.description = req.body.description;
+  if (req.body.vendor !== undefined) updateData.vendor = req.body.vendor;
+  if (req.body.price !== undefined) updateData.price = Number(req.body.price);
+  if (req.body.productType !== undefined) updateData.productType = req.body.productType;
+  if (req.body.status !== undefined) updateData.status = req.body.status;
+  if (req.body.stock !== undefined) updateData.stock = Number(req.body.stock);
+
+  if (req.body.tags !== undefined) {
+    updateData.tags = req.body.tags
+      ? req.body.tags.split(",").map((tag) => tag.trim())
+      : [];
+  }
+
+  if (req.body.featured !== undefined) {
+    updateData.featured = parseJSON(req.body.featured, []);
+  }
+
+  const collections = parseCollections(req.body.collections);
+  if (collections.length > 0) {
+    updateData.collections = collections;
+  }
+
+  // Handle uploaded images
+  const imageUrls = req.files?.map((file) => file.path) || [];
+  if (imageUrls.length > 0) {
+    updateData.images = imageUrls;
+  }
+
+  // OPTIMIZATION: Execute in a single DB round-trip using findOneAndUpdate returning the original doc
+  const oldProduct = await db
+    .collection("products")
+    .findOneAndUpdate(
+      { _id: new ObjectId(id) },
+      { $set: updateData },
+      { returnDocument: "before" }
+    );
+
+  if (!oldProduct) {
+    return res.status(404).json({ success: false, message: "Product not found" });
+  }
+
+  // Cloudinary media cleanup: if new images were uploaded, delete old images asynchronously
+  if (imageUrls.length > 0 && oldProduct.images && oldProduct.images.length > 0) {
+    deleteManyFromCloudinary(oldProduct.images).catch((err) =>
+      console.error("⚠️ Failed to clean up old product images from Cloudinary:", err.message)
+    );
+  }
+
+  // Build the updated product response object by merging the changes
+  const updatedProduct = {
+    ...oldProduct,
+    ...updateData,
+  };
+
+  res.json({
+    success: true,
+    message: "Product updated successfully",
+    data: updatedProduct,
+  });
 };
 
 // ==========================================
@@ -229,62 +214,57 @@ const updateProduct = async (req, res) => {
 // ==========================================
 
 const addProductRating = async (req, res) => {
-  try {
-    const id = req.params.id;
+  const id = req.params.id;
 
-    if (!isValidObjectId(id)) {
-      return res.status(400).json({ success: false, message: "Invalid Product ID" });
-    }
-
-    const db = getDB();
-    const { rating, comment, customerName } = req.body;
-    const numericRating = Number(rating);
-
-    if (numericRating < 1 || numericRating > 5) {
-      return res
-        .status(400)
-        .json({ success: false, message: "Rating must be between 1 to 5" });
-    }
-
-    const product = await db
-      .collection("products")
-      .findOne({ _id: new ObjectId(id) });
-
-    if (!product) {
-      return res.status(404).json({ success: false, message: "Product not found" });
-    }
-
-    const oldReviews = product.rating?.reviews || [];
-
-    const newReview = {
-      customerName: customerName || "Anonymous",
-      rating: numericRating,
-      comment: comment || "",
-      createdAt: new Date(),
-    };
-
-    const updatedReviews = [...oldReviews, newReview];
-    const total = updatedReviews.reduce((sum, item) => sum + item.rating, 0);
-    const average = total / updatedReviews.length;
-
-    await db.collection("products").updateOne(
-      { _id: new ObjectId(id) },
-      {
-        $set: {
-          rating: {
-            average: Number(average.toFixed(1)),
-            count: updatedReviews.length,
-            reviews: updatedReviews,
-          },
-        },
-      }
-    );
-
-    res.json({ success: true, message: "Rating added successfully" });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ success: false, message: error.message });
+  if (!isValidObjectId(id)) {
+    return res.status(400).json({ success: false, message: "Invalid Product ID" });
   }
+
+  const db = getDB();
+  const { rating, comment, customerName } = req.body;
+  const numericRating = Number(rating);
+
+  if (numericRating < 1 || numericRating > 5) {
+    return res
+      .status(400)
+      .json({ success: false, message: "Rating must be between 1 to 5" });
+  }
+
+  const product = await db
+    .collection("products")
+    .findOne({ _id: new ObjectId(id) });
+
+  if (!product) {
+    return res.status(404).json({ success: false, message: "Product not found" });
+  }
+
+  const oldReviews = product.rating?.reviews || [];
+
+  const newReview = {
+    customerName: customerName || "Anonymous",
+    rating: numericRating,
+    comment: comment || "",
+    createdAt: new Date(),
+  };
+
+  const updatedReviews = [...oldReviews, newReview];
+  const total = updatedReviews.reduce((sum, item) => sum + item.rating, 0);
+  const average = total / updatedReviews.length;
+
+  await db.collection("products").updateOne(
+    { _id: new ObjectId(id) },
+    {
+      $set: {
+        rating: {
+          average: Number(average.toFixed(1)),
+          count: updatedReviews.length,
+          reviews: updatedReviews,
+        },
+      },
+    }
+  );
+
+  res.json({ success: true, message: "Rating added successfully" });
 };
 
 // ==========================================
@@ -292,28 +272,31 @@ const addProductRating = async (req, res) => {
 // ==========================================
 
 const deleteProduct = async (req, res) => {
-  try {
-    const id = req.params.id;
+  const id = req.params.id;
 
-    if (!isValidObjectId(id)) {
-      return res.status(400).json({ success: false, message: "Invalid Product ID" });
-    }
-
-    const db = getDB();
-
-    const result = await db
-      .collection("products")
-      .deleteOne({ _id: new ObjectId(id) });
-
-    if (result.deletedCount === 0) {
-      return res.status(404).json({ success: false, message: "Product Not Found" });
-    }
-
-    res.json({ success: true, message: "Product deleted successfully" });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ success: false, message: error.message });
+  if (!isValidObjectId(id)) {
+    return res.status(400).json({ success: false, message: "Invalid Product ID" });
   }
+
+  const db = getDB();
+
+  // Find and delete the product in a single operation to fetch its images for Cloudinary deletion
+  const product = await db
+    .collection("products")
+    .findOneAndDelete({ _id: new ObjectId(id) });
+
+  if (!product) {
+    return res.status(404).json({ success: false, message: "Product Not Found" });
+  }
+
+  // Cloudinary media cleanup: delete associated images asynchronously
+  if (product.images && product.images.length > 0) {
+    deleteManyFromCloudinary(product.images).catch((err) =>
+      console.error("⚠️ Failed to delete product images from Cloudinary:", err.message)
+    );
+  }
+
+  res.json({ success: true, message: "Product deleted successfully" });
 };
 
 module.exports = {

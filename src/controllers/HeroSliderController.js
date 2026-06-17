@@ -5,6 +5,7 @@
 const { ObjectId } = require("mongodb");
 const { getDB } = require("../config/db");
 const isValidObjectId = require("../utils/objectId");
+const { deleteFromCloudinary } = require("../utils/cloudinaryCleanup");
 
 // ==========================================
 // HELPERS
@@ -23,42 +24,30 @@ const parseJSON = (value, fallback = []) => {
 // ==========================================
 
 const createHeroSlider = async (req, res) => {
-  try {
-    const db = getDB();
+  const db = getDB();
 
-    // CLOUDINARY URL — single image like product images
-    const imageUrl = req.file?.path || "";
+  const imageUrl = req.file?.path || "";
+  const badges = parseJSON(req.body.badges, []);
 
-    // badges — JSON array like product's featured
-    const badges = parseJSON(req.body.badges, []);
+  const slider = {
+    title: req.body.title || "",
+    description: req.body.description || "",
+    badge: req.body.badge || "",
+    buttonText: req.body.buttonText || "SHOP NOW",
+    image: imageUrl,
+    badges, // array e.g. ["New Arrival", "Hot Deal"]
+    status: req.body.status || "draft",
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
 
-    const slider = {
-      title: req.body.title || "",
-      description: req.body.description || "",
-      badge: req.body.badge || "",
-      buttonText: req.body.buttonText || "SHOP NOW",
-      image: imageUrl,
-      badges,        // array e.g. ["New Arrival", "Hot Deal"]
-      status: req.body.status || "draft",
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
+  const result = await db.collection("heroSliders").insertOne(slider);
 
-    const result = await db
-      .collection("heroSliders")
-      .insertOne(slider);
-
-    res.status(201).json({
-      success: true,
-      message: "Hero slider created successfully",
-      insertedId: result.insertedId,
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
-  }
+  res.status(201).json({
+    success: true,
+    message: "Hero slider created successfully",
+    insertedId: result.insertedId,
+  });
 };
 
 // ==========================================
@@ -66,22 +55,15 @@ const createHeroSlider = async (req, res) => {
 // ==========================================
 
 const getHeroSliders = async (req, res) => {
-  try {
-    const db = getDB();
+  const db = getDB();
 
-    const sliders = await db
-      .collection("heroSliders")
-      .find()
-      .sort({ createdAt: -1 })
-      .toArray();
+  const sliders = await db
+    .collection("heroSliders")
+    .find()
+    .sort({ createdAt: -1 })
+    .toArray();
 
-    res.json(sliders);
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
-  }
+  res.json(sliders);
 };
 
 // ==========================================
@@ -89,36 +71,28 @@ const getHeroSliders = async (req, res) => {
 // ==========================================
 
 const getSingleHeroSlider = async (req, res) => {
-  try {
-    const id = req.params.id;
+  const id = req.params.id;
 
-    if (!isValidObjectId(id)) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid slider id",
-      });
-    }
-
-    const db = getDB();
-
-    const slider = await db.collection("heroSliders").findOne({
-      _id: new ObjectId(id),
-    });
-
-    if (!slider) {
-      return res.status(404).json({
-        success: false,
-        message: "Slider not found",
-      });
-    }
-
-    res.json(slider);
-  } catch (error) {
-    res.status(500).json({
+  if (!isValidObjectId(id)) {
+    return res.status(400).json({
       success: false,
-      message: error.message,
+      message: "Invalid slider id",
     });
   }
+
+  const db = getDB();
+  const slider = await db.collection("heroSliders").findOne({
+    _id: new ObjectId(id),
+  });
+
+  if (!slider) {
+    return res.status(404).json({
+      success: false,
+      message: "Slider not found",
+    });
+  }
+
+  res.json(slider);
 };
 
 // ==========================================
@@ -126,70 +100,69 @@ const getSingleHeroSlider = async (req, res) => {
 // ==========================================
 
 const updateHeroSlider = async (req, res) => {
-  try {
-    const id = req.params.id;
+  const id = req.params.id;
 
-    if (!isValidObjectId(id)) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid slider id",
-      });
-    }
-
-    const db = getDB();
-
-    const oldSlider = await db
-      .collection("heroSliders")
-      .findOne({ _id: new ObjectId(id) });
-
-    if (!oldSlider) {
-      return res.status(404).json({
-        success: false,
-        message: "Slider not found",
-      });
-    }
-
-    // badges — fall back to old value if nothing sent (same pattern as product's featured)
-    const badges = req.body.badges
-      ? parseJSON(req.body.badges, oldSlider.badges || [])
-      : oldSlider.badges || [];
-
-    const updateData = {
-      title: req.body.title ?? oldSlider.title,
-      description: req.body.description ?? oldSlider.description,
-      badge: req.body.badge ?? oldSlider.badge,
-      buttonText: req.body.buttonText ?? oldSlider.buttonText,
-      badges,        // always an array, never wiped
-      status: req.body.status ?? oldSlider.status,
-      updatedAt: new Date(),
-    };
-
-    // IMAGE UPDATE — new file replaces old, otherwise keep existing
-    if (req.file) {
-      updateData.image = req.file.path;
-    } else {
-      updateData.image = oldSlider.image || "";
-    }
-
-    await db
-      .collection("heroSliders")
-      .updateOne({ _id: new ObjectId(id) }, { $set: updateData });
-
-    const updatedSlider = await db
-      .collection("heroSliders")
-      .findOne({ _id: new ObjectId(id) });
-
-    res.json({
-      success: true,
-      message: "Slider updated successfully",
-      data: updatedSlider,
-    });
-  } catch (error) {
-    res.status(500).json({
+  if (!isValidObjectId(id)) {
+    return res.status(400).json({
       success: false,
-      message: error.message,
+      message: "Invalid slider id",
     });
   }
+
+  const db = getDB();
+
+  // Build the update payload dynamically based on what is provided in the request
+  const updateData = {
+    updatedAt: new Date(),
+  };
+
+  if (req.body.title !== undefined) updateData.title = req.body.title;
+  if (req.body.description !== undefined) updateData.description = req.body.description;
+  if (req.body.badge !== undefined) updateData.badge = req.body.badge;
+  if (req.body.buttonText !== undefined) updateData.buttonText = req.body.buttonText;
+  if (req.body.status !== undefined) updateData.status = req.body.status;
+
+  if (req.body.badges !== undefined) {
+    updateData.badges = parseJSON(req.body.badges, []);
+  }
+
+  if (req.file?.path) {
+    updateData.image = req.file.path;
+  }
+
+  // OPTIMIZATION: Execute in a single DB round-trip using findOneAndUpdate returning original doc
+  const oldSlider = await db
+    .collection("heroSliders")
+    .findOneAndUpdate(
+      { _id: new ObjectId(id) },
+      { $set: updateData },
+      { returnDocument: "before" }
+    );
+
+  if (!oldSlider) {
+    return res.status(404).json({
+      success: false,
+      message: "Slider not found",
+    });
+  }
+
+  // Cloudinary media cleanup: if a new image was uploaded, delete the old image asynchronously
+  if (req.file?.path && oldSlider.image) {
+    deleteFromCloudinary(oldSlider.image).catch((err) =>
+      console.error("⚠️ Failed to clean up old hero slider image from Cloudinary:", err.message)
+    );
+  }
+
+  const updatedSlider = {
+    ...oldSlider,
+    ...updateData,
+  };
+
+  res.json({
+    success: true,
+    message: "Slider updated successfully",
+    data: updatedSlider,
+  });
 };
 
 // ==========================================
@@ -197,39 +170,40 @@ const updateHeroSlider = async (req, res) => {
 // ==========================================
 
 const deleteHeroSlider = async (req, res) => {
-  try {
-    const id = req.params.id;
+  const id = req.params.id;
 
-    if (!isValidObjectId(id)) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid slider id",
-      });
-    }
-
-    const db = getDB();
-
-    const result = await db
-      .collection("heroSliders")
-      .deleteOne({ _id: new ObjectId(id) });
-
-    if (result.deletedCount === 0) {
-      return res.status(404).json({
-        success: false,
-        message: "Slider not found",
-      });
-    }
-
-    res.json({
-      success: true,
-      message: "Slider deleted successfully",
-    });
-  } catch (error) {
-    res.status(500).json({
+  if (!isValidObjectId(id)) {
+    return res.status(400).json({
       success: false,
-      message: error.message,
+      message: "Invalid slider id",
     });
   }
+
+  const db = getDB();
+
+  // Find and delete the hero slider in a single DB operation to fetch the image URL for Cloudinary deletion
+  const slider = await db
+    .collection("heroSliders")
+    .findOneAndDelete({ _id: new ObjectId(id) });
+
+  if (!slider) {
+    return res.status(404).json({
+      success: false,
+      message: "Slider not found",
+    });
+  }
+
+  // Cloudinary media cleanup: delete image asynchronously
+  if (slider.image) {
+    deleteFromCloudinary(slider.image).catch((err) =>
+      console.error("⚠️ Failed to delete hero slider image from Cloudinary:", err.message)
+    );
+  }
+
+  res.json({
+    success: true,
+    message: "Slider deleted successfully",
+  });
 };
 
 module.exports = {
