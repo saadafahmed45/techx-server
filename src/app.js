@@ -3,6 +3,7 @@
 // ==========================================
 
 const express = require("express");
+const cookieParser = require("cookie-parser");
 
 const cors = require("cors");
 
@@ -17,6 +18,9 @@ const heroSliderRoutes =
 
 const orderRoutes =
   require("./routes/orderRoutes");
+
+const authRoutes = require("./routes/authRoutes");
+const userRoutes = require("./routes/userRoutes");
 
 const app = express();
 
@@ -69,6 +73,7 @@ app.use(
 ========================================= */
 
 app.use(express.json());
+app.use(cookieParser());
 
 app.use(
   express.urlencoded({
@@ -111,6 +116,10 @@ app.use(
   "/orders",
   orderRoutes
 );
+
+// USER & AUTH ROUTES
+app.use("/api/auth", authRoutes);
+app.use("/api/users", userRoutes);
 
 /* =========================================
    ROOT

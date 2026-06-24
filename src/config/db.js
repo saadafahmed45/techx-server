@@ -35,6 +35,8 @@ const connectDB = async () => {
       { collection: "collections", spec: { createdAt: -1 } },
       { collection: "orders", spec: { createdAt: -1 } },
       { collection: "heroSliders", spec: { createdAt: -1 } },
+      { collection: "users", spec: { email: 1 }, options: { unique: true } },
+      { collection: "users", spec: { createdAt: -1 } },
     ];
 
     for (const idx of indexes) {
