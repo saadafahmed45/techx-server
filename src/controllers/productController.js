@@ -96,16 +96,34 @@ const createProduct = async (req, res) => {
 
 const getProducts = async (req, res) => {
   const db = getDB();
-  
-  // OPTIMIZATION: Project out the heavy "rating.reviews" and "description" fields
-  // since they are not needed for listing pages.
+
+  const page = Math.max(1, parseInt(req.query.page) || 1);
+  const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 50));
+  const skip = (page - 1) * limit;
+  const { status, featured, vendor, productType, category } = req.query;
+
+  const filter = {};
+  if (status) filter.status = status;
+  if (vendor) filter.vendor = { $regex: vendor, $options: "i" };
+  if (productType) filter.productType = productType;
+  if (featured) filter.featured = featured;
+
   const products = await db
     .collection("products")
-    .find({}, { projection: { "rating.reviews": 0, description: 0 } })
+    .find(filter, { projection: { "rating.reviews": 0, description: 0 } })
     .sort({ createdAt: -1 })
+    .skip(skip)
+    .limit(limit)
     .toArray();
 
-  res.json(products);
+  const total = await db.collection("products").countDocuments(filter);
+  const totalPages = Math.ceil(total / limit);
+
+  res.set("Cache-Control", "public, max-age=30, stale-while-revalidate=120");
+  res.json({
+    data: products,
+    pagination: { page, limit, total, totalPages },
+  });
 };
 
 // ==========================================

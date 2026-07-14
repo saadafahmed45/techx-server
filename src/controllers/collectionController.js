@@ -72,13 +72,25 @@ const createCollection = async (req, res) => {
 const getCollections = async (req, res) => {
   const db = getDB();
 
+  const page = Math.max(1, parseInt(req.query.page) || 1);
+  const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 50));
+  const skip = (page - 1) * limit;
+
   const collections = await db
     .collection("collections")
     .find()
     .sort({ createdAt: -1 })
+    .skip(skip)
+    .limit(limit)
     .toArray();
 
-  res.json(collections);
+  const total = await db.collection("collections").countDocuments();
+
+  res.set("Cache-Control", "public, max-age=60, stale-while-revalidate=120");
+  res.json({
+    data: collections,
+    pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+  });
 };
 
 // ==========================================
