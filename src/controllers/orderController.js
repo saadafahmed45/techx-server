@@ -75,13 +75,31 @@ const createOrder = async (req, res) => {
 const getOrders = async (req, res) => {
   const db = getDB();
 
+  const page = Math.max(1, parseInt(req.query.page) || 1);
+  const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 50));
+  const skip = (page - 1) * limit;
+  const { status, phone } = req.query;
+
+  const filter = {};
+  if (status) filter.status = status;
+  if (phone) filter.phone = { $regex: phone, $options: "i" };
+
   const orders = await db
     .collection("orders")
-    .find()
+    .find(filter)
+    .project({ products: 1, customerName: 1, email: 1, phone: 1, address: 1, totalPrice: 1, paymentMethod: 1, status: 1, createdAt: 1, updatedAt: 1 })
     .sort({ createdAt: -1 })
+    .skip(skip)
+    .limit(limit)
     .toArray();
 
-  res.json(orders);
+  const total = await db.collection("orders").countDocuments(filter);
+
+  res.set("Cache-Control", "private, max-age=10");
+  res.json({
+    data: orders,
+    pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+  });
 };
 
 // ==========================================
