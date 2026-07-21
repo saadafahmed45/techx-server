@@ -110,7 +110,7 @@ const getProducts = async (req, res) => {
 
   const products = await db
     .collection("products")
-    .find(filter, { projection: { "rating.reviews": 0, description: 0 } })
+    .find(filter, { projection: { "rating.reviews": 0 } })
     .sort({ createdAt: -1 })
     .skip(skip)
     .limit(limit)
@@ -183,16 +183,24 @@ const updateProduct = async (req, res) => {
     updateData.featured = parseJSON(req.body.featured, []);
   }
 
-  const collections = parseCollections(req.body.collections);
-  if (collections.length > 0) {
-    updateData.collections = collections;
+  // Always update collections if provided (even if empty array — allows clearing collections)
+  if (req.body.collections !== undefined) {
+    updateData.collections = parseCollections(req.body.collections);
   }
 
-  // Handle uploaded images
-  const imageUrls = req.files?.map((file) => file.path) || [];
-  if (imageUrls.length > 0) {
-    updateData.images = imageUrls;
+  // Handle images: merge existing URLs with any new uploaded files
+  const newImageUrls = req.files?.map((file) => file.path) || [];
+  // existingImages: array of URLs the client wants to keep
+  const existingImages = parseJSON(req.body.existingImages, null);
+
+  if (existingImages !== null) {
+    // Client explicitly told us what to keep + any new uploads
+    updateData.images = [...existingImages, ...newImageUrls];
+  } else if (newImageUrls.length > 0) {
+    // Fallback: only new uploads provided (replace all)
+    updateData.images = newImageUrls;
   }
+  // If neither, don't touch images field
 
   // OPTIMIZATION: Execute in a single DB round-trip using findOneAndUpdate returning the original doc
   const oldProduct = await db
@@ -207,11 +215,16 @@ const updateProduct = async (req, res) => {
     return res.status(404).json({ success: false, message: "Product not found" });
   }
 
-  // Cloudinary media cleanup: if new images were uploaded, delete old images asynchronously
-  if (imageUrls.length > 0 && oldProduct.images && oldProduct.images.length > 0) {
-    deleteManyFromCloudinary(oldProduct.images).catch((err) =>
-      console.error("⚠️ Failed to clean up old product images from Cloudinary:", err.message)
+  // Cloudinary media cleanup: delete any old images that are no longer in the updated set
+  if (updateData.images && oldProduct.images && oldProduct.images.length > 0) {
+    const removedImages = oldProduct.images.filter(
+      (url) => !updateData.images.includes(url)
     );
+    if (removedImages.length > 0) {
+      deleteManyFromCloudinary(removedImages).catch((err) =>
+        console.error("⚠️ Failed to clean up removed product images from Cloudinary:", err.message)
+      );
+    }
   }
 
   // Build the updated product response object by merging the changes
