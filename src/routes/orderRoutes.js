@@ -25,6 +25,7 @@ router.get("/:id", getSingleOrder);
 
 // UPDATE STATUS
 router.patch("/:id", updateOrderStatus);
+router.put("/:id", updateOrderStatus);
 
 // DELETE ORDER
 router.delete("/:id", deleteOrder);
