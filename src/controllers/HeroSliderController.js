@@ -57,12 +57,18 @@ const createHeroSlider = async (req, res) => {
 const getHeroSliders = async (req, res) => {
   const db = getDB();
 
+  const filter = {};
+  if (req.query.status) {
+    filter.status = req.query.status;
+  }
+
   const sliders = await db
     .collection("heroSliders")
-    .find()
+    .find(filter)
     .sort({ createdAt: -1 })
     .toArray();
 
+  res.setHeader("Cache-Control", "public, max-age=60, stale-while-revalidate=300");
   res.json(sliders);
 };
 
