@@ -14,8 +14,12 @@ const heroSliderRoutes = require("./routes/heroSliderRoutes");
 const orderRoutes = require("./routes/orderRoutes");
 const authRoutes = require("./routes/authRoutes");
 const userRoutes = require("./routes/userRoutes");
+const { apiLimiter } = require("./middleware/rateLimiter");
 
 const app = express();
+
+// Apply general API rate limiter
+app.use(apiLimiter);
 
 // Compression
 app.use(compression({ level: 6, threshold: 1024 }));

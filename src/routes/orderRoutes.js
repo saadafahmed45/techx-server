@@ -3,6 +3,7 @@
 // ==========================================
 
 const express = require("express");
+const { verifyJWT, verifyAdmin } = require("../middleware/authMiddleware");
 
 const {
   createOrder,
@@ -14,20 +15,20 @@ const {
 
 const router = express.Router();
 
-// CREATE ORDER
+// CREATE ORDER (Public: Customer checkout)
 router.post("/", createOrder);
 
-// GET ALL ORDERS
-router.get("/", getOrders);
+// GET ALL ORDERS (Admin Only)
+router.get("/", verifyJWT, verifyAdmin, getOrders);
 
-// GET SINGLE ORDER
+// GET SINGLE ORDER (Public: Order tracking / invoice)
 router.get("/:id", getSingleOrder);
 
-// UPDATE STATUS
-router.patch("/:id", updateOrderStatus);
-router.put("/:id", updateOrderStatus);
+// UPDATE STATUS (Admin Only)
+router.patch("/:id", verifyJWT, verifyAdmin, updateOrderStatus);
+router.put("/:id", verifyJWT, verifyAdmin, updateOrderStatus);
 
-// DELETE ORDER
-router.delete("/:id", deleteOrder);
+// DELETE ORDER (Admin Only)
+router.delete("/:id", verifyJWT, verifyAdmin, deleteOrder);
 
 module.exports = router;

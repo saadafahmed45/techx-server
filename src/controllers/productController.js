@@ -100,13 +100,23 @@ const getProducts = async (req, res) => {
   const page = Math.max(1, parseInt(req.query.page) || 1);
   const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 50));
   const skip = (page - 1) * limit;
-  const { status, featured, vendor, productType, category } = req.query;
+  const { status, featured, vendor, productType, category, search } = req.query;
 
   const filter = {};
   if (status) filter.status = status;
   if (vendor) filter.vendor = { $regex: vendor, $options: "i" };
   if (productType) filter.productType = productType;
   if (featured) filter.featured = featured;
+
+  if (search && search.trim()) {
+    const q = search.trim();
+    filter.$or = [
+      { title: { $regex: q, $options: "i" } },
+      { description: { $regex: q, $options: "i" } },
+      { vendor: { $regex: q, $options: "i" } },
+      { productType: { $regex: q, $options: "i" } },
+    ];
+  }
 
   const products = await db
     .collection("products")
