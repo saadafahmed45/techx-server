@@ -13,7 +13,17 @@ const {
   getSingleHeroSlider,
   updateHeroSlider,
   deleteHeroSlider,
+  getSliderSettings,
+  updateSliderSettings,
+  reorderHeroSliders,
 } = require("../controllers/HeroSliderController");
+
+// SETTINGS (Public GET, Admin PUT)
+router.get("/settings", getSliderSettings);
+router.put("/settings", verifyJWT, verifyAdmin, updateSliderSettings);
+
+// BATCH REORDER (Admin Only)
+router.put("/reorder", verifyJWT, verifyAdmin, reorderHeroSliders);
 
 // CREATE (Admin Only)
 router.post(

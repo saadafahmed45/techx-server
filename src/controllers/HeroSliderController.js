@@ -37,6 +37,10 @@ const createHeroSlider = async (req, res) => {
     image: imageUrl,
     badges, // array e.g. ["New Arrival", "Hot Deal"]
     status: req.body.status || "draft",
+    order: req.body.order !== undefined && req.body.order !== "" ? Number(req.body.order) : 0,
+    textSize: req.body.textSize || "medium", // "small" | "medium" | "large"
+    imageSize: req.body.imageSize || "cover", // "cover" | "contain"
+    sliderHeight: req.body.sliderHeight || "medium", // "compact" | "medium" | "tall" | "fullscreen"
     createdAt: new Date(),
     updatedAt: new Date(),
   };
@@ -65,7 +69,7 @@ const getHeroSliders = async (req, res) => {
   const sliders = await db
     .collection("heroSliders")
     .find(filter)
-    .sort({ createdAt: -1 })
+    .sort({ order: 1, createdAt: -1 })
     .toArray();
 
   res.setHeader("Cache-Control", "public, max-age=60, stale-while-revalidate=300");
@@ -127,6 +131,12 @@ const updateHeroSlider = async (req, res) => {
   if (req.body.badge !== undefined) updateData.badge = req.body.badge;
   if (req.body.buttonText !== undefined) updateData.buttonText = req.body.buttonText;
   if (req.body.status !== undefined) updateData.status = req.body.status;
+  if (req.body.order !== undefined && req.body.order !== "") {
+    updateData.order = Number(req.body.order);
+  }
+  if (req.body.textSize !== undefined) updateData.textSize = req.body.textSize;
+  if (req.body.imageSize !== undefined) updateData.imageSize = req.body.imageSize;
+  if (req.body.sliderHeight !== undefined) updateData.sliderHeight = req.body.sliderHeight;
 
   if (req.body.badges !== undefined) {
     updateData.badges = parseJSON(req.body.badges, []);
@@ -212,10 +222,146 @@ const deleteHeroSlider = async (req, res) => {
   });
 };
 
+// ==========================================
+// DEFAULT SETTINGS
+// ==========================================
+
+const DEFAULT_SLIDER_SETTINGS = {
+  key: "hero_slider_settings",
+  imageSize: "cover", // "cover" | "contain"
+  sliderHeight: "medium", // "compact" | "medium" | "tall" | "fullscreen"
+  textSize: "medium", // "small" | "medium" | "large"
+  autoplaySpeed: 5500, // milliseconds
+  showArrows: true,
+  showDots: true,
+};
+
+// ==========================================
+// GET SLIDER SETTINGS
+// ==========================================
+
+const getSliderSettings = async (req, res) => {
+  try {
+    const db = getDB();
+    const settings = await db
+      .collection("sliderSettings")
+      .findOne({ key: "hero_slider_settings" });
+
+    res.setHeader("Cache-Control", "public, max-age=60, stale-while-revalidate=300");
+    res.json(settings || DEFAULT_SLIDER_SETTINGS);
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      message: err.message || "Failed to load slider settings",
+    });
+  }
+};
+
+// ==========================================
+// UPDATE SLIDER SETTINGS (Admin Only)
+// ==========================================
+
+const updateSliderSettings = async (req, res) => {
+  try {
+    const db = getDB();
+    const {
+      imageSize,
+      sliderHeight,
+      textSize,
+      autoplaySpeed,
+      showArrows,
+      showDots,
+    } = req.body;
+
+    const updatePayload = {
+      updatedAt: new Date(),
+    };
+
+    if (imageSize !== undefined) updatePayload.imageSize = imageSize;
+    if (sliderHeight !== undefined) updatePayload.sliderHeight = sliderHeight;
+    if (textSize !== undefined) updatePayload.textSize = textSize;
+    if (autoplaySpeed !== undefined) updatePayload.autoplaySpeed = Number(autoplaySpeed);
+    if (showArrows !== undefined) updatePayload.showArrows = Boolean(showArrows);
+    if (showDots !== undefined) updatePayload.showDots = Boolean(showDots);
+
+    const result = await db.collection("sliderSettings").findOneAndUpdate(
+      { key: "hero_slider_settings" },
+      {
+        $set: updatePayload,
+        $setOnInsert: {
+          key: "hero_slider_settings",
+          createdAt: new Date(),
+        },
+      },
+      { upsert: true, returnDocument: "after" }
+    );
+
+    res.json({
+      success: true,
+      message: "Slider settings updated successfully",
+      settings: result,
+    });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      message: err.message || "Failed to update slider settings",
+    });
+  }
+};
+
+// ==========================================
+// REORDER HERO SLIDERS (Admin Only)
+// ==========================================
+
+const reorderHeroSliders = async (req, res) => {
+  try {
+    const db = getDB();
+    const { items } = req.body; // Array of { id, order }
+
+    if (!Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Items array is required for reordering",
+      });
+    }
+
+    const bulkOps = items
+      .filter((item) => isValidObjectId(item.id))
+      .map((item) => ({
+        updateOne: {
+          filter: { _id: new ObjectId(item.id) },
+          update: {
+            $set: {
+              order: Number(item.order) || 0,
+              updatedAt: new Date(),
+            },
+          },
+        },
+      }));
+
+    if (bulkOps.length > 0) {
+      await db.collection("heroSliders").bulkWrite(bulkOps);
+    }
+
+    res.json({
+      success: true,
+      message: "Hero sliders reordered successfully",
+    });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      message: err.message || "Failed to reorder hero sliders",
+    });
+  }
+};
+
 module.exports = {
   createHeroSlider,
   getHeroSliders,
   getSingleHeroSlider,
   updateHeroSlider,
   deleteHeroSlider,
+  getSliderSettings,
+  updateSliderSettings,
+  reorderHeroSliders,
 };
