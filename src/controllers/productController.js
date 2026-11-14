@@ -100,7 +100,7 @@ const getProducts = async (req, res) => {
   const page = Math.max(1, parseInt(req.query.page) || 1);
   const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 50));
   const skip = (page - 1) * limit;
-  const { status, featured, vendor, productType, category } = req.query;
+  const { status, featured, vendor, productType, category, search } = req.query;
 
   const filter = {};
   if (status) filter.status = status;
@@ -108,9 +108,19 @@ const getProducts = async (req, res) => {
   if (productType) filter.productType = productType;
   if (featured) filter.featured = featured;
 
+  if (search && search.trim()) {
+    const q = search.trim();
+    filter.$or = [
+      { title: { $regex: q, $options: "i" } },
+      { description: { $regex: q, $options: "i" } },
+      { vendor: { $regex: q, $options: "i" } },
+      { productType: { $regex: q, $options: "i" } },
+    ];
+  }
+
   const products = await db
     .collection("products")
-    .find(filter, { projection: { "rating.reviews": 0, description: 0 } })
+    .find(filter, { projection: { "rating.reviews": 0 } })
     .sort({ createdAt: -1 })
     .skip(skip)
     .limit(limit)
@@ -183,16 +193,40 @@ const updateProduct = async (req, res) => {
     updateData.featured = parseJSON(req.body.featured, []);
   }
 
-  const collections = parseCollections(req.body.collections);
-  if (collections.length > 0) {
-    updateData.collections = collections;
+  // Always update collections if provided (even if empty array — allows clearing collections)
+  if (req.body.collections !== undefined) {
+    updateData.collections = parseCollections(req.body.collections);
   }
 
-  // Handle uploaded images
-  const imageUrls = req.files?.map((file) => file.path) || [];
-  if (imageUrls.length > 0) {
-    updateData.images = imageUrls;
+  // Handle images: merge existing URLs with any new uploaded files
+  const newImageUrls = req.files?.map((file) => file.path) || [];
+  // existingImages: array of URLs the client wants to keep
+  const existingImages = parseJSON(req.body.existingImages, null);
+  const imageOrder = parseJSON(req.body.imageOrder, null);
+
+  if (Array.isArray(imageOrder) && imageOrder.length > 0) {
+    let fileIdx = 0;
+    const ordered = [];
+    for (const item of imageOrder) {
+      if (item?.type === "existing" && item?.url) {
+        ordered.push(item.url);
+      } else if (item?.type === "new" && fileIdx < newImageUrls.length) {
+        ordered.push(newImageUrls[fileIdx++]);
+      }
+    }
+    // Append any extra uploaded files that weren't accounted for
+    while (fileIdx < newImageUrls.length) {
+      ordered.push(newImageUrls[fileIdx++]);
+    }
+    updateData.images = ordered;
+  } else if (existingImages !== null) {
+    // Client explicitly told us what to keep + any new uploads
+    updateData.images = [...existingImages, ...newImageUrls];
+  } else if (newImageUrls.length > 0) {
+    // Fallback: only new uploads provided (replace all)
+    updateData.images = newImageUrls;
   }
+  // If neither, don't touch images field
 
   // OPTIMIZATION: Execute in a single DB round-trip using findOneAndUpdate returning the original doc
   const oldProduct = await db
@@ -207,11 +241,16 @@ const updateProduct = async (req, res) => {
     return res.status(404).json({ success: false, message: "Product not found" });
   }
 
-  // Cloudinary media cleanup: if new images were uploaded, delete old images asynchronously
-  if (imageUrls.length > 0 && oldProduct.images && oldProduct.images.length > 0) {
-    deleteManyFromCloudinary(oldProduct.images).catch((err) =>
-      console.error("⚠️ Failed to clean up old product images from Cloudinary:", err.message)
+  // Cloudinary media cleanup: delete any old images that are no longer in the updated set
+  if (updateData.images && oldProduct.images && oldProduct.images.length > 0) {
+    const removedImages = oldProduct.images.filter(
+      (url) => !updateData.images.includes(url)
     );
+    if (removedImages.length > 0) {
+      deleteManyFromCloudinary(removedImages).catch((err) =>
+        console.error("⚠️ Failed to clean up removed product images from Cloudinary:", err.message)
+      );
+    }
   }
 
   // Build the updated product response object by merging the changes

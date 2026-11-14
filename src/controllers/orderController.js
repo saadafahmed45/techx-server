@@ -87,7 +87,22 @@ const getOrders = async (req, res) => {
   const orders = await db
     .collection("orders")
     .find(filter)
-    .project({ products: 1, customerName: 1, email: 1, phone: 1, address: 1, totalPrice: 1, paymentMethod: 1, status: 1, createdAt: 1, updatedAt: 1 })
+    .project({
+      products: 1,
+      customerName: 1,
+      email: 1,
+      phone: 1,
+      address: 1,
+      totalPrice: 1,
+      paymentMethod: 1,
+      status: 1,
+      courier: 1,
+      deliveryCharge: 1,
+      alreadyPaid: 1,
+      note: 1,
+      createdAt: 1,
+      updatedAt: 1,
+    })
     .sort({ createdAt: -1 })
     .skip(skip)
     .limit(limit)
