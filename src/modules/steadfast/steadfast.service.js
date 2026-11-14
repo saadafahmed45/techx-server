@@ -45,12 +45,22 @@ class SteadfastService {
     return { apiKey, secretKey };
   }
 
+  getBaseUrl() {
+    let url = (process.env.STEADFAST_BASE_URL || this.baseUrl || "https://portal.packzy.com/api/v1").trim();
+    // Safeguard: If someone mistakenly configured their own website or webhook URL as Steadfast base URL
+    if (url.includes("vercel.app") || url.includes("localhost") || !url.includes("packzy.com")) {
+      url = "https://portal.packzy.com/api/v1";
+    }
+    return url.replace(/\/+$/, "");
+  }
+
   /**
    * Internal HTTP request handler with timeout and error mapping
    */
   async _request(endpoint, options = {}) {
     const { apiKey, secretKey } = this._ensureConfigured();
-    const url = `${this.baseUrl}${endpoint.startsWith("/") ? "" : "/"}${endpoint}`;
+    const baseUrl = this.getBaseUrl();
+    const url = `${baseUrl}${endpoint.startsWith("/") ? "" : "/"}${endpoint}`;
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS);
