@@ -202,8 +202,24 @@ const updateProduct = async (req, res) => {
   const newImageUrls = req.files?.map((file) => file.path) || [];
   // existingImages: array of URLs the client wants to keep
   const existingImages = parseJSON(req.body.existingImages, null);
+  const imageOrder = parseJSON(req.body.imageOrder, null);
 
-  if (existingImages !== null) {
+  if (Array.isArray(imageOrder) && imageOrder.length > 0) {
+    let fileIdx = 0;
+    const ordered = [];
+    for (const item of imageOrder) {
+      if (item?.type === "existing" && item?.url) {
+        ordered.push(item.url);
+      } else if (item?.type === "new" && fileIdx < newImageUrls.length) {
+        ordered.push(newImageUrls[fileIdx++]);
+      }
+    }
+    // Append any extra uploaded files that weren't accounted for
+    while (fileIdx < newImageUrls.length) {
+      ordered.push(newImageUrls[fileIdx++]);
+    }
+    updateData.images = ordered;
+  } else if (existingImages !== null) {
     // Client explicitly told us what to keep + any new uploads
     updateData.images = [...existingImages, ...newImageUrls];
   } else if (newImageUrls.length > 0) {
