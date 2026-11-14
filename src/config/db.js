@@ -42,9 +42,12 @@ const connectDB = async () => {
       { collection: "collections", spec: { slug: 1 }, options: { unique: true } },
       { collection: "collections", spec: { createdAt: -1 } },
 
-      // Orders: sorting and phone-based tracking
+      // Orders: sorting, phone-based tracking, and courier lookups
       { collection: "orders", spec: { createdAt: -1 } },
       { collection: "orders", spec: { phone: 1 } },
+      { collection: "orders", spec: { "courier.consignmentId": 1 } },
+      { collection: "orders", spec: { "courier.deliveryStatus": 1 } },
+      { collection: "orders", spec: { "courier.bookedAt": -1 } },
 
       // Hero sliders: filtering by status
       { collection: "heroSliders", spec: { status: 1, createdAt: -1 } },

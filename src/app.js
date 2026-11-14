@@ -14,6 +14,7 @@ const heroSliderRoutes = require("./routes/heroSliderRoutes");
 const orderRoutes = require("./routes/orderRoutes");
 const authRoutes = require("./routes/authRoutes");
 const userRoutes = require("./routes/userRoutes");
+const steadfastRoutes = require("./modules/steadfast/steadfast.routes");
 const { apiLimiter } = require("./middleware/rateLimiter");
 
 const app = express();
@@ -101,6 +102,9 @@ app.use(
 // USER & AUTH ROUTES
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
+
+// STEADFAST COURIER ROUTES
+app.use("/api/steadfast", steadfastRoutes);
 
 /* =========================================
    ROOT
