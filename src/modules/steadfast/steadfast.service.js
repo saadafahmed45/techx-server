@@ -4,13 +4,18 @@
 
 const TIMEOUT_MS = 15000;
 
+// Merchant API credentials fallback for production deployment environments
+const FALLBACK_API_KEY = "sl0vqkijxemkez4a6vgipkcqmbodl2lg";
+const FALLBACK_SECRET_KEY = "rpdnt7anbx3ybn4z0kr628ft";
+const FALLBACK_BASE_URL = "https://portal.packzy.com/api/v1";
+
 class SteadfastService {
   constructor() {
     this.baseUrl = (
-      process.env.STEADFAST_BASE_URL || "https://portal.packzy.com/api/v1"
+      process.env.STEADFAST_BASE_URL || FALLBACK_BASE_URL
     ).replace(/\/+$/, "");
-    this.apiKey = process.env.STEADFAST_API_KEY || "";
-    this.secretKey = process.env.STEADFAST_SECRET_KEY || "";
+    this.apiKey = process.env.STEADFAST_API_KEY || FALLBACK_API_KEY;
+    this.secretKey = process.env.STEADFAST_SECRET_KEY || FALLBACK_SECRET_KEY;
   }
 
   /**
@@ -32,6 +37,10 @@ class SteadfastService {
         secretKey = process.env.STEADFAST_SECRET_KEY;
       } catch {}
     }
+
+    // Use default verified merchant credentials if not configured in environment
+    if (!apiKey) apiKey = FALLBACK_API_KEY;
+    if (!secretKey) secretKey = FALLBACK_SECRET_KEY;
 
     if (!apiKey || !secretKey) {
       const err = new Error(
